@@ -1,2 +1,2 @@
-# Stock-Tracker
-Tracking stock
+# Pelacak Barang Masuk & Keluar
+Tracking stock >>> [Here]
