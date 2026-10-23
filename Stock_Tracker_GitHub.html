@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0f172a">
+<title>Pelacak Barang Masuk & Keluar</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { darkMode: 'class', theme: { extend: {
+  colors: { darkBg:'#0f172a', darkCard:'#1e293b', darkBorder:'#334155' }
+}}};
+</script>
+<style>
+  body { background:#0f172a; color:#f8fafc; }
+  .custom-scrollbar::-webkit-scrollbar { width:5px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background:#475569; border-radius:10px; }
+  .fade-in { animation: fadeIn .35s ease-out; }
+  @keyframes fadeIn { from {opacity:0;transform:translateY(8px)} to {opacity:1;transform:translateY(0)} }
+  .modal-active { display:flex!important; }
+</style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+<div class="max-w-6xl mx-auto">
+  <header class="mb-8 text-center">
+    <h1 class="text-3xl md:text-4xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-emerald-400">STOCK TRACKER</h1>
+    <p class="text-slate-400 text-xs uppercase tracking-[.2em] mt-2">Pelacakan Barang Masuk & Keluar</p>
+    <p class="text-slate-500 text-xs mt-2">Tanpa perhitungan gaji — gaji dihitung manual di luar aplikasi</p>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main class="lg:col-span-2 space-y-6">
+      <section class="bg-darkCard p-5 md:p-6 rounded-2xl border border-darkBorder shadow-xl">
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-4">
+          <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300">Input Data Shift</h2>
+          <span id="dateDisplay" class="text-xs font-bold bg-blue-900/50 text-blue-300 px-3 py-1 rounded-full">Menunggu data…</span>
+        </div>
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <label for="rawInput" class="block text-xs text-slate-400">Tempel data check-in, bongkar, dan checkout di bawah ini.</label>
+          <button type="button" onclick="openFormatHelp()" onmouseenter="this.classList.add('ring-2','ring-cyan-400')" onmouseleave="this.classList.remove('ring-2','ring-cyan-400')" class="shrink-0 w-7 h-7 rounded-full border border-cyan-500 text-cyan-300 hover:bg-cyan-950 font-black text-sm transition" title="Lihat contoh format input" aria-label="Bantuan format input">?</button>
+        </div>
+        <textarea id="rawInput" class="w-full h-72 p-4 bg-slate-900 border border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm text-slate-200" placeholder="Tempel data checkin & checkout di sini..."></textarea>
+        <div class="flex flex-col sm:flex-row gap-3 mt-4">
+          <button onclick="calculateData()" class="flex-1 bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-black uppercase tracking-wider text-sm">Proses Data Barang</button>
+          <button onclick="clearInput()" class="bg-slate-700 hover:bg-slate-600 text-slate-200 px-5 py-3 rounded-xl font-bold text-sm">Bersihkan</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">Data dihitung dari bagian <code>#checkoutlastorder</code>. Selisih stok awal dan stok akhir ditampilkan sebagai total keluar/terjual.</p>
+      </section>
+
+      <section id="resultArea" class="hidden space-y-5 fade-in">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div class="bg-blue-950/60 border border-blue-800 p-5 rounded-2xl">
+            <p class="text-xs text-blue-300 font-bold uppercase tracking-wider">Barang Keluar HD</p>
+            <p id="hdSale" class="text-3xl font-black mt-2">0</p>
+          </div>
+          <div class="bg-purple-950/60 border border-purple-800 p-5 rounded-2xl">
+            <p class="text-xs text-purple-300 font-bold uppercase tracking-wider">Barang Keluar LC</p>
+            <p id="lcSale" class="text-3xl font-black mt-2">0</p>
+          </div>
+          <div class="bg-emerald-950/60 border border-emerald-800 p-5 rounded-2xl">
+            <p class="text-xs text-emerald-300 font-bold uppercase tracking-wider">Total Keluar</p>
+            <p id="totalUnit" class="text-3xl font-black mt-2">0</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="bg-darkCard p-5 rounded-2xl border border-darkBorder border-t-4 border-t-blue-500">
+            <h3 class="font-black text-blue-300 text-xs tracking-widest mb-4">RINCIAN HD</h3>
+            <div class="space-y-3 text-sm">
+              <div class="flex justify-between gap-3"><span class="text-slate-400">Barang masuk / stok awal</span><b id="hdAwal">0</b></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">Sisa / stok akhir</span><b id="hdAkhir">0</b></div>
+              <div class="flex justify-between gap-3 border-t border-slate-700 pt-3"><span class="font-bold">Barang keluar</span><b id="hdSaleDetail" class="text-blue-300">0</b></div>
+            </div>
+          </div>
+          <div class="bg-darkCard p-5 rounded-2xl border border-darkBorder border-t-4 border-t-purple-500">
+            <h3 class="font-black text-purple-300 text-xs tracking-widest mb-4">RINCIAN LC</h3>
+            <div class="space-y-3 text-sm">
+              <div class="flex justify-between gap-3"><span class="text-slate-400">Barang masuk / stok awal</span><b id="lcAwal">0</b></div>
+              <div class="flex justify-between gap-3"><span class="text-slate-400">Sisa / stok akhir</span><b id="lcAkhir">0</b></div>
+              <div class="flex justify-between gap-3 border-t border-slate-700 pt-3"><span class="font-bold">Barang keluar</span><b id="lcSaleDetail" class="text-purple-300">0</b></div>
+            </div>
+          </div>
+        </div>
+        <button onclick="saveRecord()" id="btnSaveRecord" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-sm">Simpan ke Riwayat</button>
+      </section>
+    </main>
+
+    <aside class="lg:col-span-1">
+      <section class="bg-darkCard p-5 rounded-2xl border border-darkBorder shadow-xl lg:sticky lg:top-6">
+        <div class="flex justify-between items-center gap-3 mb-5">
+          <h2 class="text-sm font-black uppercase tracking-widest">Riwayat Barang</h2>
+          <div class="flex gap-2">
+            <button onclick="exportJSON()" class="px-3 py-2 bg-blue-700 hover:bg-blue-600 rounded-lg text-xs font-bold" title="Backup JSON">Backup</button>
+            <button onclick="exportToText()" class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs font-bold" title="Simpan laporan TXT">Save TXT</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3 mb-5">
+          <div class="p-4 bg-slate-900 rounded-xl"><p class="text-[10px] text-slate-400 uppercase font-bold">Hari tercatat</p><p id="statDays" class="text-2xl font-black mt-1">0</p></div>
+          <div class="p-4 bg-slate-900 rounded-xl"><p class="text-[10px] text-slate-400 uppercase font-bold">Total barang keluar</p><p id="statUnits" class="text-2xl font-black mt-1">0</p></div>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-4">
+          <label class="cursor-pointer px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-xs font-bold">Import backup JSON<input type="file" accept=".json,application/json" class="hidden" onchange="importJSON(event)"></label>
+          <button onclick="requestReset()" class="px-3 py-2 rounded-lg bg-red-950 text-red-300 hover:bg-red-900 text-xs font-bold">Hapus semua</button>
+        </div>
+        <div id="historyList" class="space-y-3 max-h-[520px] overflow-y-auto pr-1 custom-scrollbar"></div>
+        <p class="text-[10px] text-slate-500 mt-4">Riwayat tersimpan di browser/perangkat ini. Gunakan Backup JSON untuk memindahkan data ke perangkat lain.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div id="formatHelpModal" class="hidden fixed inset-0 bg-black/80 z-[60] items-center justify-center p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="formatHelpTitle" onclick="if(event.target===this) closeFormatHelp()">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[92vh] overflow-y-auto shadow-2xl">
+    <div class="sticky top-0 bg-slate-900/95 backdrop-blur border-b border-slate-700 p-4 sm:p-5 flex items-center justify-between gap-3">
+      <div><h3 id="formatHelpTitle" class="font-black text-lg text-white">Contoh Format Input Shift</h3><p class="text-xs text-slate-400 mt-1">Panduan format data yang dikenali aplikasi.</p></div>
+      <button type="button" onclick="closeFormatHelp()" class="w-9 h-9 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xl" aria-label="Tutup panduan">×</button>
+    </div>
+    <div class="p-4 sm:p-5 space-y-4">
+      <div class="flex flex-wrap gap-2 text-[11px] font-bold"><span class="rounded-md px-2 py-1 bg-amber-950 text-amber-300">Tanggal</span><span class="rounded-md px-2 py-1 bg-cyan-950 text-cyan-300">Penanda shift</span><span class="rounded-md px-2 py-1 bg-blue-950 text-blue-300">Bagian HD</span><span class="rounded-md px-2 py-1 bg-purple-950 text-purple-300">Bagian LC</span><span class="rounded-md px-2 py-1 bg-emerald-950 text-emerald-300">BONGKAR</span></div>
+      <div class="rounded-xl border border-slate-700 bg-slate-950 p-3 sm:p-4 overflow-x-auto">
+<pre class="text-xs sm:text-sm leading-6 font-mono whitespace-pre"><span class="text-amber-300 font-bold">19 Oct 2026</span>
+<span class="text-cyan-300 font-bold">#checkinlastorder</span> (20:02)
+web : #480735
+
+<span class="text-purple-300 font-bold">- LC -</span>
+KK ID | 14262532 | <span class="text-purple-200 font-bold">143.8</span>
+
+<span class="text-blue-300 font-bold">- HD -</span>
+KK 1 | 167648091 | <span class="text-blue-200 font-bold">0.17</span> (0/250)
+KK 2 | 167689849 | <span class="text-blue-200 font-bold">49.69</span> (119/250)
+KK 3 | 162548010 | <span class="text-blue-200 font-bold">100.051</span> (0/250)
+KK 4 | 158591905 | <span class="text-blue-200 font-bold">100.84</span> (0/250)
+KK 5 | 252667807 | <span class="text-blue-200 font-bold">24.56</span> (250/250)
+
+- UNGU -
+-
+==================================
+<span class="text-cyan-300 font-bold">#checkoutlastorder</span> (08:00)
+web : #480957
+
+<span class="text-purple-300 font-bold">- LC -</span>
+KK ID | 14262532 | <span class="text-purple-200 font-bold">211.6</span>
+
+<span class="text-blue-300 font-bold">- HD -</span>
+KK 1 | 167648091 | <span class="text-blue-200 font-bold">0.17</span> (0/250)
+KK 2 | 167689849 | <span class="text-blue-200 font-bold">16.29</span> (0/250)
+KK 3 | 162548010 | <span class="text-blue-200 font-bold">0.051</span> (0/250)
+KK 4 | 158591905 | <span class="text-blue-200 font-bold">100.04</span> (0/250)
+KK 5 | 252667807 | <span class="text-blue-200 font-bold">46.36</span> (31/250)
+
+- UNGU -
+-
+
+<span class="text-emerald-300 font-bold">BONGKAR HD : 138b</span>
+<span class="text-emerald-300 font-bold">BONGKAR LC : 188.5b</span>
+-============================</pre>
+      </div>
+      <div class="rounded-xl bg-slate-800/70 p-4 space-y-2 text-xs sm:text-sm text-slate-300">
+        <p class="font-black text-white">Bagian penting</p>
+        <p><span class="text-cyan-300 font-bold">#checkinlastorder</span> menandai data awal shift dan <span class="text-cyan-300 font-bold">#checkoutlastorder</span> menandai data akhir shift.</p>
+        <p><span class="text-blue-300 font-bold">- HD -</span> dan <span class="text-purple-300 font-bold">- LC -</span> menandai bagian barang. Angka pada kolom ketiga setelah tanda <code>|</code> akan dijumlahkan.</p>
+        <p><span class="text-emerald-300 font-bold">BONGKAR HD/LC</span> ditambahkan ke stok awal. Desimal boleh memakai titik atau koma, misalnya <code>188.5b</code> atau <code>188,5b</code>.</p>
+        <p class="text-amber-200">Salinan WhatsApp didukung: tanda bintang untuk teks tebal seperti <code>*- HD -*</code>, <code>*- LC -*</code>, atau <code>*BONGKAR HD : 138b*</code> boleh tetap ada. Aplikasi akan mengenali penandanya.</p>
+        <p class="text-slate-400">Baris kosong dan garis pemisah boleh ada. Pastikan kedua penanda shift serta baris KK tetap tercantum.</p>
+      </div>
+      <div class="flex flex-col-reverse sm:flex-row gap-3"><button type="button" onclick="insertExample()" class="flex-1 bg-cyan-700 hover:bg-cyan-600 rounded-xl py-3 px-4 font-bold text-sm">Masukkan contoh ke input</button><button type="button" onclick="closeFormatHelp()" class="flex-1 bg-slate-700 hover:bg-slate-600 rounded-xl py-3 px-4 font-bold text-sm">Tutup</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 translate-y-24 transition-transform duration-300 bg-slate-100 text-slate-900 px-5 py-3 rounded-xl shadow-2xl z-50 text-xs font-black"></div>
+<div id="confirmModal" class="hidden fixed inset-0 bg-black/70 z-50 items-center justify-center p-4">
+  <div class="bg-darkCard border border-darkBorder rounded-2xl p-6 max-w-sm w-full">
+    <h3 class="text-lg font-black mb-2">Hapus seluruh riwayat?</h3>
+    <p class="text-sm text-slate-400 mb-6">Tindakan ini tidak bisa dibatalkan. Sebaiknya buat backup terlebih dahulu.</p>
+    <div class="flex gap-3"><button onclick="closeModal()" class="flex-1 bg-slate-700 rounded-xl py-3 font-bold">Batal</button><button onclick="executeReset()" class="flex-1 bg-red-600 rounded-xl py-3 font-bold">Hapus</button></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const STORAGE_KEY = 'stockTrackerHistoryV1';
+let historyData = loadHistory();
+let currentRecord = null;
+
+const exampleShiftData = `19 Oct 2026
+#checkinlastorder (20:02)
+web : #480735
+
+- LC -
+KK ID | 14262532 | 143.8
+
+- HD -
+KK 1 | 167648091 | 0.17 (0/250)
+KK 2 | 167689849 | 49.69 (119/250)
+KK 3 | 162548010 | 100.051 (0/250)
+KK 4 | 158591905 | 100.84 (0/250)
+KK 5 | 252667807 | 24.56 (250/250)
+
+- UNGU -
+-
+==================================
+#checkoutlastorder (08:00)
+web : #480957
+
+- LC -
+KK ID | 14262532 | 211.6
+
+- HD -
+KK 1 | 167648091 | 0.17 (0/250)
+KK 2 | 167689849 | 16.29 (0/250)
+KK 3 | 162548010 | 0.051 (0/250)
+KK 4 | 158591905 | 100.04 (0/250)
+KK 5 | 252667807 | 46.36 (31/250)
+
+- UNGU -
+-
+
+BONGKAR HD : 138b
+BONGKAR LC : 188.5b
+-============================`;
+
+function openFormatHelp() {
+  const modal = document.getElementById('formatHelpModal');
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+function closeFormatHelp() {
+  const modal = document.getElementById('formatHelpModal');
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+}
+function insertExample() {
+  const input = document.getElementById('rawInput');
+  if (input.value.trim() && !confirm('Ganti teks yang sekarang dengan contoh input?')) return;
+  input.value = exampleShiftData;
+  closeFormatHelp();
+  input.focus();
+  showToast('Contoh berhasil dimasukkan ke input.');
+}
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') closeFormatHelp();
+});
+
+
+function loadHistory() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    return Array.isArray(data) ? data : [];
+  } catch { return []; }
+}
+const fixMath = n => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+const fmt = n => Number(n || 0).toLocaleString('id-ID', {maximumFractionDigits:2});
+
+function extractSumFromSection(text, sectionHeader) {
+  const lines = text.split(/\r?\n/);
+  let inside = false, sum = 0;
+  for (const raw of lines) {
+    const line = raw.trim();
+    // Abaikan tanda format WhatsApp (*tebal*, _miring_, dan sejenisnya) saat membaca judul bagian.
+    const normalizedLine = line.replace(/[\\*_~`]/g, '').trim().toUpperCase();
+    if (normalizedLine === `- ${sectionHeader} -`) { inside = true; continue; }
+    if (inside && normalizedLine.startsWith('-') && normalizedLine.endsWith('-') && normalizedLine !== `- ${sectionHeader} -`) break;
+    if (inside && line.includes('|')) {
+      const columns = line.split('|');
+      if (columns.length >= 3) {
+        const rawValue = columns[2].trim().split(/\s+/)[0].replace(',', '.');
+        const value = parseFloat(rawValue);
+        if (Number.isFinite(value)) sum += value;
+      }
+    }
+  }
+  return fixMath(sum);
+}
+function extractBongkar(text, type) {
+  // Terima format desimal titik/koma, termasuk .5 dan ,5, dengan atau tanpa akhiran "b".
+  // Contoh: 188.5b, 188,5b, .5b, ,5b, 0.5, 0,5.
+  const regex = new RegExp(
+    `BONGKAR\\s+${type}\\s*:\\s*([+-]?(?:\\d+(?:[.,]\\d*)?|[.,]\\d+))\\s*b?`,
+    'i'
+  );
+  const match = text.match(regex);
+  if (!match) return 0;
+  const normalized = match[1].replace(',', '.');
+  const value = Number(normalized);
+  return Number.isFinite(value) ? value : 0;
+}
+function calculateData() {
+  const input = document.getElementById('rawInput').value;
+  if (!input.trim()) return showToast('Data masih kosong!', true);
+  try {
+    const dateMatch = input.replace(/^\s*[\*_~`]+/, '').match(/^(\d{1,2}\s+\w+\s+\d{4})/);
+    const date = dateMatch ? dateMatch[1] : new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'});
+    const marker = '#checkoutlastorder';
+    const idx = input.toLowerCase().indexOf(marker);
+    if (idx < 0) throw new Error('Bagian #checkoutlastorder tidak ditemukan dalam teks.');
+    const checkin = input.substring(0, idx);
+    const checkout = input.substring(idx);
+    const hdAwal = fixMath(extractSumFromSection(checkin, 'HD') + extractBongkar(input, 'HD'));
+    const lcAwal = fixMath(extractSumFromSection(checkin, 'LC') + extractBongkar(input, 'LC'));
+    const hdAkhir = extractSumFromSection(checkout, 'HD');
+    const lcAkhir = extractSumFromSection(checkout, 'LC');
+    const hdKeluar = fixMath(hdAwal - hdAkhir);
+    const lcKeluar = fixMath(lcAwal - lcAkhir);
+    const totalKeluar = fixMath(hdKeluar + lcKeluar);
+    document.getElementById('dateDisplay').textContent = date;
+    for (const [id, value] of Object.entries({
+      hdAwal, hdAkhir, lcAwal, lcAkhir,
+      hdSale:hdKeluar, hdSaleDetail:hdKeluar,
+      lcSale:lcKeluar, lcSaleDetail:lcKeluar, totalUnit:totalKeluar
+    })) document.getElementById(id).textContent = fmt(value);
+    document.getElementById('resultArea').classList.remove('hidden');
+    currentRecord = {id:Date.now(), tanggal:date, hdAwal, hdAkhir, hdKeluar, lcAwal, lcAkhir, lcKeluar, totalKeluar};
+    document.getElementById('resultArea').scrollIntoView({behavior:'smooth', block:'start'});
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'Format data tidak sesuai.', true);
+  }
+}
+function saveRecord() {
+  if (!currentRecord) return showToast('Proses data terlebih dahulu.', true);
+  historyData.unshift(currentRecord);
+  persist();
+  renderHistory();
+  currentRecord = null;
+  document.getElementById('resultArea').classList.add('hidden');
+  document.getElementById('rawInput').value = '';
+  document.getElementById('dateDisplay').textContent = 'Menunggu data…';
+  showToast('Riwayat barang berhasil disimpan.');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function persist() { localStorage.setItem(STORAGE_KEY, JSON.stringify(historyData)); }
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const total = fixMath(historyData.reduce((s, x) => s + Number(x.totalKeluar ?? x.totalUnit ?? 0), 0));
+  document.getElementById('statDays').textContent = historyData.length;
+  document.getElementById('statUnits').textContent = fmt(total);
+  if (!historyData.length) {
+    list.innerHTML = '<div class="text-center py-10 text-slate-500 text-xs">Belum ada riwayat barang.</div>';
+    return;
+  }
+  list.innerHTML = historyData.map(item => {
+    const hd = Number(item.hdKeluar ?? item.hdSale ?? 0);
+    const lc = Number(item.lcKeluar ?? item.lcSale ?? 0);
+    const units = Number(item.totalKeluar ?? item.totalUnit ?? hd + lc);
+    return `<article class="p-4 bg-slate-900/70 border border-slate-700 rounded-xl">
+      <div class="flex justify-between gap-3 items-start"><div><p class="text-[10px] text-blue-300 font-bold uppercase mb-1">${escapeHTML(item.tanggal || '-')}</p><p class="text-sm font-black">${fmt(units)} unit keluar</p></div>
+      <button onclick="deleteRecord(${Number(item.id)})" class="text-slate-500 hover:text-red-400 font-black px-2" aria-label="Hapus riwayat">✕</button></div>
+      <div class="flex justify-between mt-3 text-xs text-slate-400"><span>HD keluar: <b class="text-blue-300">${fmt(hd)}</b></span><span>LC keluar: <b class="text-purple-300">${fmt(lc)}</b></span></div>
+      <div class="text-[10px] text-slate-500 mt-2">Stok awal HD/LC: ${fmt(item.hdAwal ?? 0)} / ${fmt(item.lcAwal ?? 0)} · Sisa: ${fmt(item.hdAkhir ?? 0)} / ${fmt(item.lcAkhir ?? 0)}</div>
+    </article>`;
+  }).join('');
+}
+function escapeHTML(value) {
+  return String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function deleteRecord(id) {
+  historyData = historyData.filter(item => Number(item.id) !== Number(id));
+  persist(); renderHistory(); showToast('Riwayat dihapus.');
+}
+function clearInput() {
+  document.getElementById('rawInput').value = '';
+  document.getElementById('resultArea').classList.add('hidden');
+  document.getElementById('dateDisplay').textContent = 'Menunggu data…';
+  currentRecord = null;
+}
+function showToast(message, error=false) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `fixed bottom-6 left-1/2 -translate-x-1/2 transition-transform duration-300 px-5 py-3 rounded-xl shadow-2xl z-50 text-xs font-black ${error?'bg-red-500 text-white':'bg-slate-100 text-slate-900'}`;
+  toast.classList.remove('translate-y-24');
+  setTimeout(() => toast.classList.add('translate-y-24'), 3000);
+}
+function requestReset() {
+  if (!historyData.length) return showToast('Riwayat sudah kosong.');
+  document.getElementById('confirmModal').classList.remove('hidden');
+  document.getElementById('confirmModal').classList.add('modal-active');
+}
+function closeModal() {
+  document.getElementById('confirmModal').classList.add('hidden');
+  document.getElementById('confirmModal').classList.remove('modal-active');
+}
+function executeReset() {
+  historyData = []; persist(); renderHistory(); closeModal(); showToast('Semua riwayat telah dihapus.');
+}
+function downloadBlob(content, type, filename) {
+  const blob = new Blob([content], {type});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportJSON() {
+  downloadBlob(JSON.stringify({app:'Stock Tracker', version:1, exportedAt:new Date().toISOString(), records:historyData}, null, 2), 'application/json', `backup_barang_${new Date().toISOString().slice(0,10)}.json`);
+  showToast('Backup JSON dibuat.');
+}
+function importJSON(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const records = Array.isArray(parsed) ? parsed : parsed.records;
+      if (!Array.isArray(records)) throw new Error('Format backup tidak dikenali.');
+      const valid = records.filter(x => x && typeof x === 'object' && x.tanggal);
+      if (!valid.length && records.length) throw new Error('Data di dalam backup tidak valid.');
+      const existing = new Set(historyData.map(x => String(x.id)));
+      let added = 0;
+      for (const item of valid) {
+        const id = item.id ?? Date.now() + Math.random();
+        if (!existing.has(String(id))) { historyData.push({...item, id}); existing.add(String(id)); added++; }
+      }
+      historyData.sort((a,b) => Number(b.id)-Number(a.id));
+      persist(); renderHistory(); showToast(`${added} data diimpor.`);
+    } catch (err) { showToast(err.message || 'Gagal membaca backup.', true); }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+function exportToText() {
+  if (!historyData.length) return showToast('Belum ada data untuk diekspor.', true);
+
+  const now = new Date();
+  const pad2 = n => String(n).padStart(2, '0');
+  const printedAt = `${pad2(now.getDate())}/${pad2(now.getMonth()+1)}/${now.getFullYear()}, ${pad2(now.getHours())}.${pad2(now.getMinutes())}.${pad2(now.getSeconds())}`;
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function parseRecordDate(value) {
+    const raw = String(value || '').trim();
+    // Mendukung tanggal seperti "19 Oct 2026" dan tanggal lokal seperti "19 Oktober 2026".
+    const m = raw.match(/^(\d{1,2})\s+([\p{L}.]+)\s+(\d{4})$/u);
+    if (m) {
+      const monthMap = {
+        jan:0, january:0, januari:0, feb:1, february:1, februari:1,
+        mar:2, march:2, maret:2, apr:3, april:3, mei:4, may:4,
+        jun:5, june:5, juni:5, jul:6, july:6, juli:6,
+        agu:7, agustus:7, aug:7, august:7, sep:8, september:8,
+        okt:9, oktober:9, oct:9, october:9, nov:10, november:10,
+        des:11, desember:11, dec:11, december:11
+      };
+      const month = monthMap[m[2].toLowerCase().replace(/\.$/, '')];
+      if (month !== undefined) return new Date(Number(m[3]), month, Number(m[1]));
+    }
+    const fallback = new Date(raw);
+    return Number.isNaN(fallback.getTime()) ? null : fallback;
+  }
+  function reportDate(value) {
+    const date = parseRecordDate(value);
+    return date ? `${date.getDate()} ${monthNames[date.getMonth()]} ${date.getFullYear()}` : String(value || '-');
+  }
+  function compactNumber(value) {
+    return Number(value || 0).toFixed(2).replace(/\.00$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+  }
+  const records = [...historyData].sort((a, b) => {
+    const da = parseRecordDate(a.tanggal)?.getTime() ?? Number(a.id) ?? 0;
+    const db = parseRecordDate(b.tanggal)?.getTime() ?? Number(b.id) ?? 0;
+    return db - da;
+  });
+  const hdTotal = records.reduce((sum, x) => sum + Number(x.hdKeluar ?? x.hdSale ?? 0), 0);
+  const lcTotal = records.reduce((sum, x) => sum + Number(x.lcKeluar ?? x.lcSale ?? 0), 0);
+  const total = hdTotal + lcTotal;
+  const lines = [
+    'LAPORAN STOCK PENJUALAN SHIFT',
+    `DICETAK PADA: ${printedAt}`,
+    '='.repeat(50),
+    '',
+    'TANGGAL              |       HD |       LC |    TOTAL',
+    '-'.repeat(50)
+  ];
+  for (const x of records) {
+    const date = reportDate(x.tanggal);
+    const hd = Number(x.hdKeluar ?? x.hdSale ?? 0);
+    const lc = Number(x.lcKeluar ?? x.lcSale ?? 0);
+    const rowTotal = Number(x.totalKeluar ?? x.totalUnit ?? hd + lc);
+    lines.push(`${date.padEnd(21)} | ${hd.toFixed(2).padStart(8)} | ${lc.toFixed(2).padStart(8)} | ${rowTotal.toFixed(2).padStart(8)}`);
+  }
+  lines.push('='.repeat(50));
+  lines.push('RINGKASAN AKUMULASI:');
+  lines.push(`Total Penjualan HD      : ${compactNumber(hdTotal)} unit`);
+  lines.push(`Total Penjualan LC      : ${compactNumber(lcTotal)} unit`);
+  lines.push(`Total Penjualan Gabungan: ${compactNumber(total)} unit`);
+  lines.push('-'.repeat(50));
+  downloadBlob(lines.join('\n'), 'text/plain;charset=utf-8', `laporan_stock_penjualan_${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}.txt`);
+  showToast('Laporan TXT berhasil disimpan.');
+}
+renderHistory();
+</script>
+</body>
+</html>
